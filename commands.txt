@@ -1,6 +1,12 @@
 1)create an ubuntu instance 
 
-allow ssh,http,https,select t2.micro,select 16gb storage and connect instance
+1)add name ekaushalya chatbot ,
+2)select ubuntu
+3)Amazon Machine Image (AMI) - ubuntu server 24.04,
+4)instance type - t2.micro
+5)key pair login - create new key pair - enter name -default - create key pair
+6)Tick all three boxes allow ssh,http,https
+7)configure storage select 1*16gb gp3 storage and connect instance
 
 2)connect via ssh by navigating to the folder where you pem file is  in gitbash
 
