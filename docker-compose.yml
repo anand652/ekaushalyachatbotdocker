@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: chatbot_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: anandpm19
+      POSTGRES_DB: chatbot_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend_api
+    container_name: backend
+    env_file:
+      - ./backend_api/.env
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend_app
+    container_name: frontend
+    env_file:
+      - ./frontend_app/.env
+    depends_on:
+      - backend
+    ports:
+      - "8501:8501"
+    command: streamlit run app.py --server.address 0.0.0.0 --server.port 8501
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
