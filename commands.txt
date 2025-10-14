@@ -1,5 +1,7 @@
 1)create an ubuntu instance 
 
+allow ssh,http,https,select t2.micro,select 16gb storage and connect instance
+
 2)connect via ssh by navigating to the folder where you pem file is  in gitbash
 
 command will be in your ec2 connect to ec2 via ssh client
@@ -103,19 +105,23 @@ install dependencies
 pip install --upgrade pip
 pip install -r requirements.txt
 
-11)create .env in both frontend and backend folder in the root
+11)create .env in backend folder in the root
 
 nano .env
 
-copy the content from github backend .env folder and paste it 
+DATABASE_URL= "postgresql://postgres:test@localhost/chatbot_db"
 
-once pasted ctrl+o then enter then ctrl + x
+COHERE_API_KEY=""    ("add your cohere api key")
+
+once done ctrl+o then enter then ctrl + x
 
 and same for github frontend .env folder navigate that folder in ubuntu and then 
 
 nano .env
 
-once pasted ctrl+o then enter then ctrl + x
+BACKEND_URL="http://127.0.0.1:8000"
+
+once done ctrl+o then enter then ctrl + x
 
 12)set the password for postgres same as the password used in database url in your backend .env folder
 
@@ -131,22 +137,34 @@ ALTER USER postgres WITH PASSWORD 'test';
 
 \q 
 
-13)now navigate to backend folder , activate virtual environment and then run
+13)we need to enable the port 8000 and 8501 in our instance to do that
+
+1)under your instance navigate to security
+
+2)click on security groups
+
+3)click on edit inbound rules
+
+4)add rule
+
+select custom tcp - add port range(one for 8000 and another for 8501) - choose source as custom - choose cidr blocks as - 0.0.0.0/0 - click on save rules
+
+14)now navigate to backend folder , activate virtual environment and then run
 
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 
-
-14)open one more gitbash terminal and then navigate to the folder where your pem file is and connect through ssh and run 
+15)open one more gitbash terminal and then navigate to the folder where your pem file is and connect through ssh and run 
 
 streamlit run app.py --server.port 8501 --server.address 0.0.0.0
 
-15)To run it in port -80
+16)To run it in port -80
 
 sudo /home/ubuntu/project/ekaushalyachatbot/frontend_app/myenv/bin/streamlit run app.py --server.port 80 --server.address 0.0.0.0
 
-16)To test it in browser go to instance's ipv4 address
+17)To test it in browser go to your instance's ipv4 address
 
 ---------------------------------------------------------------------------------------------------------------------------------------------
+=>If you forgot to set volume as 16 gb you can follow the below instructions
 
 =>how to  increase volume in ebs
 
