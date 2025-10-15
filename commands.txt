@@ -228,6 +228,36 @@ http://<your-ec2-public-ip>
 
 22)delete the existing uploaded document and add document again  and test the user chat because previously existing embedding will be deleted 
 
+-----------------------------------------------------------------------------------------------------------------------------------------------
+
+To implement cicd using github action for this
+
+1)stop and remove containers
+
+docker compose down
+
+2)remove frontend and backend images but keep the postgres docker image
+
+=>To check the docker images info
+
+docker images
+
+=>To remove the frontend and backend docker images
+
+docker rmi image name
+
+3)
+
+
+
+
+
+
+
+
+
+
+
 
 
 
