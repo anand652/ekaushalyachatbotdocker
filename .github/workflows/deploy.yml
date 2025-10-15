@@ -33,7 +33,7 @@ jobs:
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-frontend:latest ./frontend_app
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-frontend:latest
 
-      # Step 5: Deploy to EC2 via SSH
+      # Step 5: Deploy to EC2 via SSH using Docker Compose
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v0.1.7
         with:
@@ -43,32 +43,12 @@ jobs:
           script: |
             cd ~/chatbot-deploy
 
-            # Create Docker network if it doesn't exist
-            docker network create chatbot-network || true
-
-            # Connect existing DB container to the network (if not connected)
-            docker network connect chatbot-network chatbot_db || true
-
             # Pull latest images
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-backend:latest
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-frontend:latest
 
-            # Stop old containers
-            docker stop backend frontend || true
-            docker rm backend frontend || true
+            # Stop and remove all containers
+            docker-compose down
 
-            # Run backend container connected to DB network
-            docker run -d \
-              --name backend \
-              --network chatbot-network \
-              --env-file ./backend.env \
-              -p 8000:8000 \
-              ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-backend:latest
-
-            # Run frontend container connected to DB network
-            docker run -d \
-              --name frontend \
-              --network chatbot-network \
-              --env-file ./frontend.env \
-              -p 80:8501 \
-              ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-frontend:latest
+            # Start all services
+            docker-compose up -d
