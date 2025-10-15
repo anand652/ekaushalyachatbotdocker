@@ -14,20 +14,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Step 2: Log in to Docker Hub
+      # Steps 2-4 (Build and Push images) remain the same...
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      # Step 3: Build backend image
       - name: Build backend Docker image
         run: |
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-backend:latest ./backend_api
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-backend:latest
 
-      # Step 4: Build frontend image
       - name: Build frontend Docker image
         run: |
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-frontend:latest ./frontend_app
@@ -43,21 +42,28 @@ jobs:
           script: |
             cd ~/chatbot-deploy
 
-            # Create Docker network if it doesn't exist
+            # 1. Network creation (if needed)
             docker network create chatbot-network || true
 
-            # Connect existing DB container to the network (if not connected)
+            # 2. Connect existing DB container to the network
             docker network connect chatbot-network chatbot_db || true
 
-            # Pull latest images
+            # 3. CRITICAL FIX: Correct the DB Hostname in backend.env
+            # This ensures the DATABASE_URL uses the container name 'chatbot_db' 
+            # instead of the incorrect 'db' host.
+            echo "Correcting DATABASE_URL in backend.env..."
+            sed -i 's/@db:5432/@chatbot_db:5432/g' ./backend.env
+            
+            # 4. Pull latest images
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-backend:latest
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-frontend:latest
 
-            # Stop old containers
+            # 5. Stop old containers (Excluding DB)
             docker stop backend frontend || true
             docker rm backend frontend || true
 
-            # Run backend container connected to DB network
+            # 6. Run backend container
+            # This will now use the corrected backend.env with the right hostname
             docker run -d \
               --name backend \
               --network chatbot-network \
@@ -65,10 +71,11 @@ jobs:
               -p 8000:8000 \
               ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-backend:latest
 
-            # Run frontend container connected to DB network
+            # 7. Run frontend container (Internal network fix)
             docker run -d \
               --name frontend \
               --network chatbot-network \
               --env-file ./frontend.env \
+              -e BACKEND_URL=http://backend:8000 \
               -p 80:8501 \
               ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-frontend:latest
