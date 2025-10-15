@@ -1,1 +1,242 @@
 1)docker compose up --build
+
+2)tag image and push to dockerhub
+
+docker tag ekaushalyachatbot-backend yourdockerhubusername/chatbot-backend:latest
+
+docker tag ekaushalyachatbot-frontend yourdockerhubusername/chatbot-frontend:latest
+
+docker push yourdockerhubusername/chatbot-backend:latest
+
+docker push yourdockerhubusername/chatbot-frontend:latest
+
+3)create an ec2 ubuntu instance 
+
+1)add name ekaushalya chatbot ,
+2)select ubuntu
+3)Amazon Machine Image (AMI) - ubuntu server 24.04,
+4)instance type - t2.micro
+5)key pair login - create new key pair - enter name -default - create key pair
+6)Tick all three boxes allow ssh,http,https
+7)configure storage select 1*16gb gp3 storage and connect instance
+
+4)Connect to EC2 via SSH
+
+ssh -i path/to/your-key.pem ubuntu@<EC2-Public-IP>
+
+5)Install Docker and Docker Compose
+
+sudo apt update -y
+sudo apt install docker.io docker-compose -y
+sudo systemctl enable docker
+sudo systemctl start docker
+sudo usermod -aG docker ubuntu
+
+6)Then log out and log back in to apply group permissions:
+
+exit
+ssh -i path/to/your-key.pem ubuntu@<EC2-Public-IP>
+
+7)Setup Project Folder on EC2
+
+mkdir chatbot-deploy
+cd chatbot-deploy
+
+8)mkdir -p db/init
+
+
+9)Add your init.sql
+
+nano db/init/init.sql
+
+10)paste this 
+
+
+CREATE TABLE IF NOT EXISTS companies (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO companies (name) VALUES ('ekaushalya');
+
+11)Create a .env for backend & frontend
+
+nano backend.env
+
+
+DATABASE_URL=postgresql://postgres:test@db:5432/chatbot_db
+
+COHERE_API_KEY=""
+
+12)nano frontend.env
+
+BACKEND_URL=http://backend:8000
+
+13)Create docker-compose.yml
+
+nano docker-compose.yml
+
+paste this inside the folder 
+
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: chatbot_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: anandpm19
+      POSTGRES_DB: chatbot_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
+  backend:
+    image: yourdockerhubusername/chatbot-backend:latest
+    container_name: backend
+    env_file:
+      - ./backend.env
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    image: yourdockerhubusername/chatbot-frontend:latest
+    container_name: frontend
+    env_file:
+      - ./frontend.env
+    depends_on:
+      - backend
+    ports:
+      - "8501:8501"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+14)we need to enable the port 8000 and 8501 in our instance 
+
+1)under your instance navigate to security
+
+2)click on security groups
+
+3)click on edit inbound rules
+
+4)add rule
+
+select custom tcp - add port range(one for 8000 and another for 8501) - choose source as custom - choose cidr blocks as - 0.0.0.0/0 - click on save rules
+
+15)Run Everything
+
+sudo docker-compose pull
+
+16)Run containers
+
+sudo docker-compose up -d
+
+17)Check container status
+
+sudo docker ps
+
+
+18)you should see
+
+chatbot_db      postgres:15
+backend         yourdockerhubusername/chatbot-backend:latest
+frontend        yourdockerhubusername/chatbot-frontend:latest
+
+19)Access your app
+
+Streamlit frontend: http://<EC2-Public-IP>:8501
+FastAPI backend: http://<EC2-Public-IP>:8000/docs
+
+
+20)to run in port 80 
+
+change frontend port in docker-compose.yml to 80:8501
+
+nano docker-compose.yml
+
+=>paste this 
+
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: chatbot_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: anandpm19
+      POSTGRES_DB: chatbot_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
+  backend:
+    image: anand661/chatbot-backend:latest
+    container_name: backend
+    env_file:
+      - ./backend.env
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    image: anand661/chatbot-frontend:latest
+    container_name: frontend
+    env_file:
+      - ./frontend.env
+    depends_on:
+      - backend
+    ports:
+      - "80:8501"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+=>to save press ctl + o then enter ,then again ctrl + x to close
+
+21)stop the instance and build again
+
+sudo docker-compose down
+
+sudo docker-compose up -d
+
+docker ps
+
+=>you should see 
+
+:80->8501/tcp
+
+=>now go to
+
+http://<your-ec2-public-ip>
+
+22)delete the existing uploaded document and add document again  and test the user chat because previously existing embedding will be deleted 
+
+
+
+
+
+
+
+
+
+
+
+
+
