@@ -246,7 +246,7 @@ docker images
 
 docker rmi image name
 
-3)
+3)create a 
 
 
 

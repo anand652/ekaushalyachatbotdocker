@@ -42,24 +42,30 @@ jobs:
           key: ${{ secrets.EC2_KEY }}
           script: |
             cd ~/chatbot-deploy
+
+            # Create Docker network if not exists
+            docker network create chatbot-network || true
+
             # Pull latest images
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-backend:latest
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-frontend:latest
 
-            # Stop old containers if running
+            # Stop old containers
             docker stop backend frontend || true
             docker rm backend frontend || true
 
-            # Run backend
+            # Run backend container
             docker run -d \
               --name backend \
+              --network chatbot-network \
               --env-file ./backend.env \
               -p 8000:8000 \
               ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-backend:latest
 
-            # Run frontend
+            # Run frontend container
             docker run -d \
               --name frontend \
+              --network chatbot-network \
               --env-file ./frontend.env \
               -p 80:8501 \
               ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-frontend:latest
