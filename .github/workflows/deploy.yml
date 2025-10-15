@@ -53,13 +53,13 @@ jobs:
             # Run backend
             docker run -d \
               --name backend \
-              --env-file ./backend_api/.env \
+              --env-file ./backend.env \
               -p 8000:8000 \
               ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-backend:latest
 
             # Run frontend
             docker run -d \
               --name frontend \
-              --env-file ./frontend_app/.env \
+              --env-file ./frontend.env \
               -p 80:8501 \
               ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-frontend:latest
