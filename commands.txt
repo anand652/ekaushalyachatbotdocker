@@ -246,9 +246,110 @@ docker images
 
 docker rmi image name
 
-3)create a 
+3)Edit backend.env on EC2
+
+nano ~/chatbot-deploy/backend.env
+
+COHERE_API_KEY=
+
+If your key is wrapped in quotes "..." — remove them.
 
 
+4)create a .github/workflows/ directory and deploy.yml file in that folder
+
+and the paste the below code in it
+
+name: CI/CD Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Steps 2-4 (Build and Push images) remain the same...
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Build backend Docker image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-backend:latest ./backend_api
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-backend:latest
+
+      - name: Build frontend Docker image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-frontend:latest ./frontend_app
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-frontend:latest
+
+      # Step 5: Deploy to EC2 via SSH
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            cd ~/chatbot-deploy
+
+            # 1. Network creation (if needed)
+            docker network create chatbot-network || true
+
+            # 2. Connect existing DB container to the network
+            docker network connect chatbot-network chatbot_db || true
+
+            # 3. CRITICAL FIX: Correct the DB Hostname in backend.env
+            # This ensures the DATABASE_URL uses the container name 'chatbot_db' 
+            # instead of the incorrect 'db' host.
+            echo "Correcting DATABASE_URL in backend.env..."
+            sed -i 's/@db:5432/@chatbot_db:5432/g' ./backend.env
+            
+            # 4. Pull latest images
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-backend:latest
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-frontend:latest
+
+            # 5. Stop old containers (Excluding DB)
+            docker stop backend frontend || true
+            docker rm backend frontend || true
+
+            # 6. Run backend container
+            # This will now use the corrected backend.env with the right hostname
+            docker run -d \
+              --name backend \
+              --network chatbot-network \
+              --env-file ./backend.env \
+              -p 8000:8000 \
+              ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-backend:latest
+
+            # 7. Run frontend container (Internal network fix)
+            docker run -d \
+              --name frontend \
+              --network chatbot-network \
+              --env-file ./frontend.env \
+              -e BACKEND_URL=http://backend:8000 \
+              -p 80:8501 \
+              ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-frontend:latest
+
+
+
+5)add,commit and push the code to github 
+
+git add .github/workflows/deploy.yml
+git commit -m "Setup CI/CD with GitHub Actions and .env from secrets"
+git push origin main
+
+6)go to your http://<your public ip address> and check 
 
 
 

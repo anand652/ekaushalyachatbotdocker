@@ -42,36 +42,46 @@ jobs:
           script: |
             cd ~/chatbot-deploy
 
-            # 1. Network creation (if needed)
+            # 1. Ensure Docker Network and DB connection fix are in place
             docker network create chatbot-network || true
-
-            # 2. Connect existing DB container to the network
             docker network connect chatbot-network chatbot_db || true
 
-            # 3. CRITICAL FIX: Correct the DB Hostname in backend.env
-            # This ensures the DATABASE_URL uses the container name 'chatbot_db' 
-            # instead of the incorrect 'db' host.
-            echo "Correcting DATABASE_URL in backend.env..."
+            # 2. CRITICAL FIX: Correct the DB Hostname
+            echo "Correcting DATABASE_URL host and cleaning API Key quotes..."
             sed -i 's/@db:5432/@chatbot_db:5432/g' ./backend.env
             
-            # 4. Pull latest images
+            # 3. CRITICAL FIX: Strip quotes from the COHERE_API_KEY value
+            # This handles the case where the committed backend.env file has quotes around the key
+            sed -i 's/COHERE_API_KEY="\(.*\)"/COHERE_API_KEY=\1/' ./backend.env
+            
+            # 4. Ensure persistent volume exists for data/embeddings
+            docker volume create chatbot-backend-data || true
+            
+            # 5. Pull latest images
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-backend:latest
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-frontend:latest
 
-            # 5. Stop old containers (Excluding DB)
+            # 6. Stop old containers (Excluding DB)
             docker stop backend frontend || true
             docker rm backend frontend || true
 
-            # 6. Run backend container
-            # This will now use the corrected backend.env with the right hostname
+            # 7. Run backend container (Volume mount, Database host corrected, API Key cleaned)
+            # NOTE: We keep the -e COHERE_API_KEY injection as the safest method, 
+            # but the sed command ensures the env-file is also clean.
             docker run -d \
               --name backend \
               --network chatbot-network \
               --env-file ./backend.env \
+              -e COHERE_API_KEY=${{ secrets.COHERE_API_KEY }} \
+              -v chatbot-backend-data:/app/data \
               -p 8000:8000 \
               ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-backend:latest
+              
+            # 8. Wait for backend to initialize/rebuild embeddings
+            echo "Waiting 15 seconds for backend to start and rebuild embeddings..."
+            sleep 15
 
-            # 7. Run frontend container (Internal network fix)
+            # 9. Run frontend container (Internal network fix)
             docker run -d \
               --name frontend \
               --network chatbot-network \
