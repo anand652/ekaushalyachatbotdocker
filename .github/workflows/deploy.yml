@@ -43,8 +43,11 @@ jobs:
           script: |
             cd ~/chatbot-deploy
 
-            # Create Docker network if not exists
+            # Create Docker network if it doesn't exist
             docker network create chatbot-network || true
+
+            # Connect existing DB container to the network (if not connected)
+            docker network connect chatbot-network chatbot_db || true
 
             # Pull latest images
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-backend:latest
@@ -54,7 +57,7 @@ jobs:
             docker stop backend frontend || true
             docker rm backend frontend || true
 
-            # Run backend container
+            # Run backend container connected to DB network
             docker run -d \
               --name backend \
               --network chatbot-network \
@@ -62,7 +65,7 @@ jobs:
               -p 8000:8000 \
               ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-backend:latest
 
-            # Run frontend container
+            # Run frontend container connected to DB network
             docker run -d \
               --name frontend \
               --network chatbot-network \
